@@ -1,3 +1,9 @@
+iso-localize (1.0.1) isadora; urgency=low
+
+  * Added special conditions for pt_BR and pt_PT
+
+ -- Clement Lefebvre <root@linuxmint.com>  Mon,  28 Jun 2010 12:06:00 +0000
+
 iso-localize (1.0) isadora; urgency=low
 
   * Initial release

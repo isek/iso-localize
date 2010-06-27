@@ -35,13 +35,23 @@ class Localizer:
 			print "    - %s (%s)" % (language.code, language.description)
 		
 		self.language = raw_input("Please select a language: ").strip()
+		self.isolinux_language = self.language
 		
 		if not self.language in self.language_codes:
 			print "Unkown language code: " + self.language
 			sys.exit(1)		
+		
+		if self.language == "pt":
+			print "Available variants: "
+			print "    - pt_PT (Portugal)"
+			print "    - pt_BR (Brazil)"
+			self.isolinux_language = raw_input("Please select a variant: ").strip()
+			if not self.isolinux_language in ["pt_PT", "pt_BR"]:
+				print "Unkown variant code: " + self.isolinux_language
+				sys.exit(1)
 
 		self.source_live_cd_filename = filename
-		self.build_live_cd_filename = self.source_live_cd_filename.replace(".iso", "-" + self.language + ".iso")
+		self.build_live_cd_filename = self.source_live_cd_filename.replace(".iso", "-" + self.isolinux_language + ".iso")
 				
 		self.build_live_cd_description = "Linux Mint 9 Isadora"
 
@@ -84,8 +94,8 @@ class Localizer:
 				new_label = raw_input("New label: ")
 				new_line = line.replace(label, new_label)
 			else:
-				new_line = line.replace("initrd=/casper/initrd.gz", "initrd=/casper/initrd.gz locale=" + self.language)
-				new_line = new_line.replace("initrd=/casper/initrd.lz", "initrd=/casper/initrd.lz locale=" + self.language)
+				new_line = line.replace("initrd=/casper/initrd.gz", "initrd=/casper/initrd.gz locale=" + self.isolinux_language)
+				new_line = new_line.replace("initrd=/casper/initrd.lz", "initrd=/casper/initrd.lz locale=" + self.isolinux_language)
 			isolinux.append(new_line)
 		file.close()
 		file = open(os.path.join(self.base_dir, "remaster/isolinux/isolinux.cfg"), "w")
