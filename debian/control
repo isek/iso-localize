@@ -1,0 +1,12 @@
+Source: iso-localize
+Section: admin
+Priority: optional
+Maintainer: Clement Lefebvre <root@linuxmint.com>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.2
+
+Package: iso-localize
+Architecture: all
+Depends: python (>= 2.4), python (<< 3), squashfs-tools, coreutils, genisoimage, rsync
+Description: ISO Localizer for Linux Mint
+ This tool is a command line utility to change the locale of a Linux Mint ISO.
