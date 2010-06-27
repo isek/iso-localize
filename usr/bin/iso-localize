@@ -4,100 +4,139 @@ import sys
 import os
 import time
 
+class Language:
+	def __init__(self, code, description):
+		self.code = code
+		self.description = description
+
 class Localizer:
 
     def __init__(self, filename):
-        self.base_dir = "/tmp/iso-localize"
-        self.remaster_dir = os.path.join(self.base_dir, "remaster")
-        self.root_dir = os.path.join(self.base_dir, "root")
-        self.initrd_dir = os.path.join(self.base_dir, "initrd")        
-        self.mount_dir = "/tmp/iso-localize-cdrom"
-        self.squash_mount_dir = "/tmp/iso-localize-squash"
-        
-        print "Available languages: "
-        print "	it"
-        print "	fr"
-        print "	de"
-        print "	ro"
-        print "	ru"
-        print "	ko"
-        self.language = input("Please select a language: ").strip()
-        
-        self.source_live_cd_filename = filename
-        self.build_live_cd_filename = self.source_live_cd_filename + "-" + self.language
-                        
-        self.build_live_cd_description = "Linux Mint 9 Isadora"
-        
-        os.system("rm -rf " + self.base_dir)
-        os.system("umount --force " + mountDir)
-        os.system("rm -rf " + mountDir)
-        os.system("umount --force " + self.squash_mount_dir)
-        os.system("rm -rf " + self.squash_mount_dir)
-        
-        os.system("mkdir -p " + self.remaster_dir)
-        os.system("mkdir -p " + self.root_dir)
-        os.system("mkdir -p " + self.initrd_dir)
-        os.system("mkdir -p " + self.mount_dir) 
-        os.system("mkdir -p " + self.squash_mount_dir) 
-        
-        self.extract()
-        self.chroot_operations()
-        self.build()
+		self.base_dir = "/tmp/iso-localize"
+		self.remaster_dir = os.path.join(self.base_dir, "remaster")
+		self.root_dir = os.path.join(self.base_dir, "root")
+		self.initrd_dir = os.path.join(self.base_dir, "initrd")        
+		self.mount_dir = "/tmp/iso-localize-cdrom"
+		self.squash_mount_dir = "/tmp/iso-localize-squash"
+
+		self.languages = []
+		self.language_codes = []
+		file = open("/usr/lib/linuxmint/iso-localize/languages.list", "r")
+		for line in file:
+			elements = line.strip().split("=")			
+			if len(elements) == 2: 
+				language = Language(elements[0], elements[1])
+				self.languages.append(language)
+				self.language_codes.append(language.code)
+		file.close()
+
+		print "Available languages: "
+		for language in self.languages:
+			print "    - %s (%s)" % (language.code, language.description)
+		
+		self.language = raw_input("Please select a language: ").strip()
+		
+		if not self.language in self.language_codes:
+			print "Unkown language code: " + self.language
+			sys.exit(1)		
+
+		self.source_live_cd_filename = filename
+		self.build_live_cd_filename = self.source_live_cd_filename.replace(".iso", "-" + self.language + ".iso")
+				
+		self.build_live_cd_description = "Linux Mint 9 Isadora"
+
+		os.system("rm -rf " + self.base_dir)
+		os.system("umount --force " + self.mount_dir)
+		os.system("rm -rf " + self.mount_dir)
+		os.system("umount --force " + self.squash_mount_dir)
+		os.system("rm -rf " + self.squash_mount_dir)
+
+		os.system("mkdir -p " + self.remaster_dir)
+		os.system("mkdir -p " + self.root_dir)
+		os.system("mkdir -p " + self.initrd_dir)
+		os.system("mkdir -p " + self.mount_dir) 
+		os.system("mkdir -p " + self.squash_mount_dir) 
+
+		self.extract()
+		self.chroot_operations()
+		self.build()
                                 
                
-    def chroot_operations(self):        
-		os.popen('cp -f /etc/resolv.conf ' + os.path.join(self.base_dir, "root/etc/resolv.conf"))           
-		os.popen('mount --bind /proc \"' + os.path.join(self.base_dir, "root/proc") + '\"')
-		os.popen('mv -f \"' + os.path.join(self.base_dir, "root/etc/wgetrc") + '\" \"' + os.path.join(self.base_dir, "root/etc/wgetrc.orig") + '\"')
-		os.popen('cp -f /etc/wgetrc ' + os.path.join(self.base_dir, "root/etc/wgetrc"))					
-		os.system("chroot " + self.root_dir + " /bin/sh -c \"touch /itworks_"+ self.language +"\"")									  
-		os.popen('mv -f \"' + os.path.join(self.base_dir, "root/etc/wgetrc.orig") + '\" \"' + os.path.join(self.base_dir, "root/etc/wgetrc") + '\"')
-		os.popen('rm -Rf \"' + os.path.join(self.base_dir, "root/etc/resolv.conf") + '\"')
-		os.popen('umount \"' + os.path.join(self.base_dir, "root/proc/") + '\"')
+    def chroot_operations(self):  
+		print "***** Localizing system"
+		os.system('cp -f /etc/resolv.conf ' + os.path.join(self.base_dir, "root/etc/resolv.conf"))		     
+		os.system('mount --bind /proc \"' + os.path.join(self.base_dir, "root/proc") + '\"')
+		os.system('mv -f \"' + os.path.join(self.base_dir, "root/etc/wgetrc") + '\" \"' + os.path.join(self.base_dir, "root/etc/wgetrc.orig") + '\"')
+		os.system('cp -f /etc/wgetrc ' + os.path.join(self.base_dir, "root/etc/wgetrc"))	
+		
+		print "------- Modifying liveCD menu"		
+		isolinux = []
+		file = open(os.path.join(self.base_dir, "remaster/isolinux/isolinux.cfg"), "r")
+		for line in file:
+			if "menu label" in line:
+				label = line.replace("menu label", "").strip()
+				print "--- Current label: " + label
+				new_label = raw_input("New label: ")
+				new_line = line.replace(label, new_label)
+			else:
+				new_line = line.replace("initrd=/casper/initrd.gz", "initrd=/casper/initrd.gz locale=" + self.language)
+				new_line = new_line.replace("initrd=/casper/initrd.lz", "initrd=/casper/initrd.lz locale=" + self.language)
+			isolinux.append(new_line)
+		file.close()
+		file = open(os.path.join(self.base_dir, "remaster/isolinux/isolinux.cfg"), "w")
+		file.writelines(isolinux)
+		file.close()		
+					
+		print "------- Installing Language packs"
+		command = "apt-get install --force-yes -y language-support-xx language-pack-xx language-pack-gnome-xx-base language-pack-gnome-xx".replace("xx", self.language)
+		os.system("chroot " + self.root_dir + " /bin/sh -c \""+ command +"\"")
+		command = "apt-get install --force-yes -y language-pack-kde-xx-base language-pack-kde-xx".replace("xx", self.language)
+		os.system("chroot " + self.root_dir + " /bin/sh -c \""+ command +"\"")
+		
+		os.system('mv -f \"' + os.path.join(self.base_dir, "root/etc/wgetrc.orig") + '\" \"' + os.path.join(self.base_dir, "root/etc/wgetrc") + '\"')
+		os.system('rm -Rf \"' + os.path.join(self.base_dir, "root/etc/resolv.conf") + '\"')		
+		os.system('umount \"' + os.path.join(self.base_dir, "root/proc/") + '\"')
    
     def extract(self):
-        os.system('mount -o loop \"' + self.source_live_cd_filename + '\" ' + self.mount_dir)  
-		print "Copying files..."
-        os.system('rsync -at --del ' + self.mount_dir + '/ \"' + self.remaster_dir + '\"')
-        
-        print "Extracting squashfs root..."
-        os.system('mount -t squashfs -o loop ' + self.mount_dir + '/casper/filesystem.squashfs \"' + self.squash_mount_dir + '\"')
-                        
-        os.system('rsync -at --del \"' + self.squash_mount_dir + '\"/ \"' + self.root_dir + '\"')
+		print "***** Extracting ISO file"
+		os.system('mount -o loop \"' + self.source_live_cd_filename + '\" ' + self.mount_dir)  
+		print "------- Copying files"
+		os.system('rsync -at --del ' + self.mount_dir + '/ \"' + self.remaster_dir + '\"')
 
-        os.system('umount --force \"' + self.squash_mount_dir + '\"')
-                
-        os.system('chmod 6755 \"' + os.path.join(self.base_dir, "root/usr/bin/sudo") + '\"')
-        os.system('chmod 0440 \"' + os.path.join(self.base_dir, "root/etc/sudoers") + '\"')
-        	    
-        print "Extracting Initial Ram Disk (initrd)..."
-	    if os.path.exists(self.base_dir + '/casper/initrd.lz'):
-	        os.popen('cd \"' + os.path.join(self.base_dir, "initrd/") + '\"; lzma -dc -S .lz ' + self.mount_dir + '/casper/initrd.lz | cpio -id')
-        elif os.path.exists(self.mount_dir + '/casper/initrd.gz'):
-            os.popen('cd \"' + os.path.join(self.base_dir, "initrd/") + '\"; cat ' + self.mount_dir + '/casper/initrd.gz | gzip -d | cpio -i')                   
-            
-        os.system("umount --force " + self.mount_dir)
-
-        print _("Finished setting up working directory...")
+		print "------- Decompressing filesystem"
+		os.system('mount -t squashfs -o loop ' + self.mount_dir + '/casper/filesystem.squashfs \"' + self.squash_mount_dir + '\"')						
+		os.system('rsync -at --del \"' + self.squash_mount_dir + '\"/ \"' + self.root_dir + '\"')
+		os.system('umount --force \"' + self.squash_mount_dir + '\"')
+				
+		os.system('chmod 6755 \"' + os.path.join(self.base_dir, "root/usr/bin/sudo") + '\"')
+		os.system('chmod 0440 \"' + os.path.join(self.base_dir, "root/etc/sudoers") + '\"')
+				
+		#print "-------- Extracting Initial Ram disk"
+		#if os.path.exists(self.mount_dir + '/casper/initrd.lz'):
+		#	os.system('cd \"' + os.path.join(self.base_dir, "initrd/") + '\"; lzma -dc -S .lz ' + self.mount_dir + '/casper/initrd.lz | cpio -id')
+		#elif os.path.exists(self.mount_dir + '/casper/initrd.gz'):
+		#	os.system('cd \"' + os.path.join(self.base_dir, "initrd/") + '\"; cat ' + self.mount_dir + '/casper/initrd.gz | gzip -d | cpio -i')                   
+			
+		os.system("umount --force " + self.mount_dir)
+		
 
     def build(self):              
-        print "INFO: Starting Build..."
-        os.system('cd \"' + os.path.join(self.base_dir, "initrd/") + '\"; find | cpio -H newc -o | lzma -7 > ../initrd.lz' + '; mv -f ../initrd.lz \"' + os.path.join(self.base_dir, "remaster/casper/initrd.lz") + '\"')
+		print "***** Assembling new ISO"
+		#os.system('cd \"' + os.path.join(self.base_dir, "initrd/") + '\"; find | cpio -H newc -o | lzma -7 > ../initrd.lz' + '; mv -f ../initrd.lz \"' + os.path.join(self.base_dir, "remaster/casper/initrd.lz") + '\"')
 
-        print "Creating SquashFS root..."
-        q = ' dpkg-query -W --showformat=\'${Package} ${Version}\n\' '
-        os.popen('chroot \"' + os.path.join(self.base_dir, "root/") + '\"' + q + ' > \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.manifest") + '\"' )
-        os.popen('cp -f \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.manifest") + '\" \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.manifest-desktop") + '\"')
-        if os.path.exists(os.path.join(self.base_dir, "remaster/casper/filesystem.squashfs")):                    
-			os.popen('rm -Rf \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.squashfs") + '\"')
-			
-        os.popen(self.timeCmd + ' mksquashfs \"' + os.path.join(self.base_dir, "root/") + '\"' + ' \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.squashfs") + '\"')
-        
-        print "Creating ISO..."         
+		print "------- Compressing filesystem"
+		q = ' dpkg-query -W --showformat=\'${Package} ${Version}\n\' '
+		os.system('chroot \"' + os.path.join(self.base_dir, "root/") + '\"' + q + ' > \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.manifest") + '\"' )
+		os.system('cp -f \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.manifest") + '\" \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.manifest-desktop") + '\"')
+		if os.path.exists(os.path.join(self.base_dir, "remaster/casper/filesystem.squashfs")):                    
+			os.system('rm -Rf \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.squashfs") + '\"')
+		os.system(' mksquashfs \"' + os.path.join(self.base_dir, "root/") + '\"' + ' \"' + os.path.join(self.base_dir, "remaster/casper/filesystem.squashfs") + '\"')
+
+		print "------- Updating manifests"         
 		os.system("/usr/lib/linuxmint/iso-localize/updateManifest.sh " + self.base_dir)
-		print _("Updating md5 sums...")
-        os.system('rm ' + os.path.join(self.base_dir, "remaster/") + ' md5sum.txt')
-        os.popen('cd \"' + os.path.join(self.base_dir, "remaster/") + '\"; ' + 'find . -type f -print0 | xargs -0 md5sum > md5sum.txt')
+		print "------- Updating md5 sums"
+		os.system('rm ' + os.path.join(self.base_dir, "remaster/") + ' md5sum.txt')
+		os.system('cd \"' + os.path.join(self.base_dir, "remaster/") + '\"; ' + 'find . -type f -print0 | xargs -0 md5sum > md5sum.txt')
 		#Remove md5sum.txt from md5sum.txt
 		os.system("sed -e '/md5sum.txt/d' " + os.path.join(self.base_dir, "remaster/") + "md5sum.txt > " + os.path.join(self.base_dir, "remaster/") + "md5sum.new")
 		os.system("mv " + os.path.join(self.base_dir, "remaster/") + "md5sum.new " + os.path.join(self.base_dir, "remaster/") + "md5sum.txt")
@@ -107,16 +146,15 @@ class Localizer:
 		#Remove isolinux.bin from md5sum.txt
 		os.system("sed -e '/isolinux.bin/d' " + os.path.join(self.base_dir, "remaster/") + "md5sum.txt > " + os.path.join(self.base_dir, "remaster/") + "md5sum.new")
 		os.system("mv " + os.path.join(self.base_dir, "remaster/") + "md5sum.new " + os.path.join(self.base_dir, "remaster/") + "md5sum.txt")
-		
-        # remove existing iso
-        if os.path.exists(self.build_live_cd_filename):
-        print _("Removing existing ISO...")
-        os.popen('rm -Rf \"' + self.build_live_cd_filename + '\"')                
-		print _("Building ISO...")
-		os.popen(self.timeCmd + ' mkisofs -o \"' + self.build_live_cd_filename + '\" -b \"isolinux/isolinux.bin\" -c \"isolinux/boot.cat\" -no-emul-boot -boot-load-size 4 -boot-info-table -V \"' + self.build_live_cd_description + '\" -cache-inodes -r -J -l \"' + self.remaster_dir + '\"')
-	
-        print "ISO Located: " + self.build_live_cd_filename           
-        print "Build Complete..."
+
+		# remove existing iso
+		if os.path.exists(self.build_live_cd_filename):			
+			os.system('rm -rf \"' + self.build_live_cd_filename + '\"')                
+		print "------- Building new ISO file"
+		os.system(' mkisofs -o \"' + self.build_live_cd_filename + '\" -b \"isolinux/isolinux.bin\" -c \"isolinux/boot.cat\" -no-emul-boot -boot-load-size 4 -boot-info-table -V \"' + self.build_live_cd_description + '\" -cache-inodes -r -J -l \"' + self.remaster_dir + '\"')
+		        
+		print "***** Finished!"
+		print "------- ISO Located: " + self.build_live_cd_filename  
 		if os.path.exists("/usr/bin/aplay"):
 			os.system("/usr/bin/aplay /usr/lib/linuxmint/iso-localize/done.wav")
 
@@ -125,7 +163,7 @@ if __name__ == "__main__":
         print "You must run with root privileges"
         sys.exit(1)        
     else :
-		if len(sys.argv != 2):
+		if len(sys.argv) != 2:
 			print "Usage: iso-localize filename.iso"
 			sys.exit(1)
 		else:					
