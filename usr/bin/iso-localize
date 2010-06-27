@@ -46,9 +46,9 @@ class Localizer:
 		self.build_live_cd_description = "Linux Mint 9 Isadora"
 
 		os.system("rm -rf " + self.base_dir)
-		os.system("umount --force " + self.mount_dir)
+		os.popen("umount --force " + self.mount_dir)
 		os.system("rm -rf " + self.mount_dir)
-		os.system("umount --force " + self.squash_mount_dir)
+		os.popen("umount --force " + self.squash_mount_dir)
 		os.system("rm -rf " + self.squash_mount_dir)
 
 		os.system("mkdir -p " + self.remaster_dir)
@@ -73,7 +73,12 @@ class Localizer:
 		isolinux = []
 		file = open(os.path.join(self.base_dir, "remaster/isolinux/isolinux.cfg"), "r")
 		for line in file:
-			if "menu label" in line:
+			if "menu title" in line:
+				title = line.replace("menu title", "").strip()
+				print "--- Current title: " + title
+				new_title = raw_input("New title: ")
+				new_line = line.replace(title, new_title)
+			elif "menu label" in line:
 				label = line.replace("menu label", "").strip()
 				print "--- Current label: " + label
 				new_label = raw_input("New label: ")
@@ -94,8 +99,8 @@ class Localizer:
 		os.system("chroot " + self.root_dir + " /bin/sh -c \""+ command +"\"")
 		
 		os.system('mv -f \"' + os.path.join(self.base_dir, "root/etc/wgetrc.orig") + '\" \"' + os.path.join(self.base_dir, "root/etc/wgetrc") + '\"')
-		os.system('rm -Rf \"' + os.path.join(self.base_dir, "root/etc/resolv.conf") + '\"')		
-		os.system('umount \"' + os.path.join(self.base_dir, "root/proc/") + '\"')
+		os.system('rm -rf \"' + os.path.join(self.base_dir, "root/etc/resolv.conf") + '\"')		
+		os.system('umount --force \"' + os.path.join(self.base_dir, "root/proc/") + '\"')
    
     def extract(self):
 		print "***** Extracting ISO file"
