@@ -1,3 +1,9 @@
+iso-localize (1.0.2) julia; urgency=low
+
+  * Julia
+
+ -- Clement Lefebvre <root@linuxmint.com>  Sun,  03 Oct 2010 11:53:00 +0000
+
 iso-localize (1.0.1) isadora; urgency=low
 
   * Added special conditions for pt_BR and pt_PT

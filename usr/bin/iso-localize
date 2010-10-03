@@ -53,7 +53,7 @@ class Localizer:
 		self.source_live_cd_filename = filename
 		self.build_live_cd_filename = self.source_live_cd_filename.replace(".iso", "-" + self.isolinux_language + ".iso")
 				
-		self.build_live_cd_description = "Linux Mint 9 Isadora"
+		self.build_live_cd_description = "Linux Mint 10 Julia"
 
 		os.system("rm -rf " + self.base_dir)
 		os.popen("umount --force " + self.mount_dir)
